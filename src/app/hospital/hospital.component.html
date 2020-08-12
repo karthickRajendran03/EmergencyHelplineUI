@@ -20,7 +20,7 @@
       <div class="row">
         <div class="col-md-6 ml-auto">
           <div class="input-group">
-            <input type="text" class="form-control" placeholder="Search Patients...">
+            <input type="text" class="form-control" placeholder="Search ...">
             <div class="input-group-append">
               <button class="btn btn-dark">Search</button>
             </div>
@@ -30,122 +30,129 @@
     </div>
   </section>
 
-  <!-- CATEGORIES -->
-  <section id="categories">
-    <div class="container">
+  <!-- facilities -->
+  <section id="facilities">
+  <form [formGroup]="facilitiesForm">
       <div class="row">
         <div class="col">
           <div class="card">
-            <!--<div class="card-header">
-              <h4>Search Categories</h4>
-            </div>-->
+            
             <table class="table table-striped">
               <thead class="thead-light">
                 <tr>
-                  <th>Patient Detais</th>
+                  <th>Facilities</th>
+                 <th></th>
+                 <th></th>
                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>Patient Name</td>
-                  <td><input  type="text" value="" placeholder="Patient Name"/></td>
-                 
+                  <td>Hospital RegnNo</td>
+                  <td><input  type="text"  formControlName="hospitalRegnNo"/></td>
+                  <td>Hospital Name</td>
+                  <td><input  type="text"  formControlName="hospitalName"/></td>
                  
                 </tr>
                 <tr>
                   <td>Contact Number</td>
-                  <td><input  type="text" placeholder="Conatc number" /></td>
+                  <td><input  type="text"  formControlName="contactNumber"/></td>
+                  <td>Hospital Type</td>
+                  <td><input  type="text"  formControlName="hospitalType"/></td>
                  
-                  
                 </tr>
-                <tr>
+                 <tr>
+                  <td>Email</td>
+                  <td><input  type="text"  formControlName="email"/></td>
                   <td>Address</td>
-                  <td><input type="text" placeholder="Address" ></td>
-                 
-                  
-                </tr>
-                <tr>
-                  <td>Health History</td>
-                  <td><textarea  style="width:100%" class="form-control" rows="3"> </textarea></td>
+                  <td><input  type="text"  formControlName="address"/></td>
                  
                 </tr>
-                <tr>
-                  <td></td>
-                  <td><input type="submit" value="Request Approve" ></td>
-                 
-                </tr>    
-              </tbody>
-            </table>
-
-          </div>
-        </div>
-        <div class="col">
-          <div class="card">
-            <!--<div class="card-header">
-              <h4>Search Categories</h4>
-            </div>-->
-            <table class="table ">
-              <thead class="thead-light">
-                <tr>
-                  <th>Hospitial View</th>
-                  <th></th>
+                 <tr>
+                  <td>City</td>
+                  <td><input  type="text"  formControlName="city"/></td>
+                  <td>Pincode</td>
+                  <td><input  type="text"  formControlName="pincode"/></td>
                  
                 </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  
-                  <td>Number Beds Available</td>
-                  <td><input type="text" value="100"></td>
-                  
-                  <!--<td>
-                    <a href="details.html" class="btn btn-secondary">
-                      <i class="fas fa-angle-double-right"></i> Details
-                    </a>
-                  </td>-->
+                 <tr>
+                  <td>State</td>
+                  <td><input  type="text"  formControlName="state"/></td>
+                  <td>Country</td>
+                  <td><input  type="text"  formControlName="country"/></td>
+                 
                 </tr>
-                <tr>
-                  <td>Ventilator Availability</td>
-                  <td><input type="text" value="10"></td>
-                  <!--<td>
-                    <a href="details.html" class="btn btn-secondary">
-                      <i class="fas fa-angle-double-right"></i> Details
-                    </a>
-                  </td>-->
+                 <tr>
+                  <td>Latitude</td>
+                  <td><input  type="text"  formControlName="latitude"/></td>
+                  <td>Longitude</td>
+                  <td><input  type="text"  formControlName="longitude"/></td>
+                 
                 </tr>
-                <tr>
-                  <td>Scan Availability</td>
-                   
-                  <td><select >
-                  <option> Select  ....</option>
-                  </select></td>
-                  
+                 <tr>
+                  <td>Multi Speciality</td>
+                  <td><input  type="text"  formControlName="multiSpeciality"/></td>
+                  <td>Ambulance Availability</td>
+                  <td><input  type="text"  formControlName="ambulanceAvailability"/></td>
+                 
                 </tr>
-                  <tr>
+                 <tr>
                   <td>Blood Bank Availability</td>
-                  <td><input type="text" value="10"></td>
-                  
-                </tr>
-                <tr>
-                  <td>Insurer Networks</td>
-                  <td><select >
-                  <option> Select  ....</option>
-                  </select></td>
-                </tr>
-                <tr>
-                  <td>Ambulatory Service</td>
-                  <td><input type="text" value="10" ></td>
+                  <td><input  type="text"  formControlName="bloodBankAvailability"/></td>
+                  <td>Scan Availability</td>
+                  <td><input  type="text"  formControlName="scanAvailability"/></td>
                  
                 </tr>
-
+                 <tr>
+                  <td>Insurance Availability</td>
+                  <td><input  type="text"  formControlName="insuranceAvailability"/></td>
+                  <td>Bed Capacity</td>
+                  <td><input  type="text"  formControlName="bedCapacity"/></td>
+                 
+                </tr>  
+                 <tr>
+                  <td>Bed Available</td>
+                  <td><input  type="text"  formControlName="bedAvailable"/></td>
+                  <td>Ventilator Facility</td>
+                  <td><input  type="text"  formControlName="ventilatorFacility"/></td>
+                 
+                </tr>  
+                 <tr>
+                  <td>Ventilator Capacity</td>
+                  <td><input  type="text"  formControlName="ventilatorCapacity"/></td>
+                  <td>Ventilator Available</td>
+                  <td><input  type="text"  formControlName="ventilatorAvailable"/></td>
+                 
+                </tr>  
+                 <tr>
+                  <td>Covid Speciality</td>
+                  <td><input  type="text"  formControlName="covidSpeciality"/></td>
+                  <td>Heart Speciality</td>
+                  <td><input  type="text"  formControlName="heartSpeciality"/></td>
+                 
+                </tr>  
+                 <tr>
+                  <td>Accident Speciality</td>
+                  <td><input  type="text"  formControlName="accidentSpeciality"/></td>
+                  <td>Ortho Speciality</td>
+                  <td><input  type="text"  formControlName="orthoSpeciality"/></td>
+                 
+                </tr>  
+                 <tr>
+                  <td>Neuro Speciality</td>
+                  <td><input  type="text"  formControlName="neuroSpeciality"/></td>
+                  <td></td>
+                  <td><button class="btn btn-dark " type="button" (click)="updatefacility()">Update</button></td>
+                 
+                </tr>  
               </tbody>
             </table>
 
           </div>
         </div>
+        
       </div>
-    </div>
+    </form>
   </section>
 
   <!-- FOOTER -->

@@ -4,7 +4,8 @@ import {
   ModelData,
   DistrictTalukPinCode,
   ApiResponse,Login,
-  ApiResponseArray,ViewAdmissionRequestArray,SubmitAdmissionResponse,ViewAdmissionHospitalRequestArray
+  ApiResponseArray,ViewAdmissionRequestArray,SubmitAdmissionResponse,
+  ViewAdmissionHospitalRequestArray,HospitalSearchResponseDTO
 } from "../model/modeldata";
 @Injectable({
   providedIn: 'root'
@@ -49,7 +50,7 @@ export class DataserviceService {
     const headers = {
     'Content-type': 'application/json'
   }
-    console.log(JSON.stringify(submitAdmissionRequest))    
+    console.log(JSON.stringify(submitAdmissionRequest))
     return this.http.post<SubmitAdmissionResponse>('http://localhost:8083/patient/submitAdmission', submitAdmissionRequest, {headers});
   }
 
@@ -77,6 +78,24 @@ public registerUser(user){
     })
   }
   console.log(user)
-return this.http.post<any>("localhost:8081/authentication/register", user, httpHeaders);
+return this.http.post<any>("http://localhost:8081/authentication/register", user, httpHeaders);
 }
+
+public viewFacilities(regno){
+const httpHeaders ={
+    headers: new HttpHeaders({
+      'Content-Type':'application/json'
+    })
+  }
+  return this.http.post<HospitalSearchResponseDTO>("http://localhost:8083/hospital/viewFacility/" + regno,httpHeaders);
+}
+public updateFacilities(hospitalSearchResponseDTO){
+const httpHeaders ={
+    headers: new HttpHeaders({
+      'Content-Type':'application/json'
+    })
+  }
+  return this.http.post<HospitalSearchResponseDTO>("url",hospitalSearchResponseDTO,httpHeaders);
+}
+
 }

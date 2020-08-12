@@ -28,7 +28,7 @@ apiHospitalResponseObj: ViewHospitalAdmissionResponse;
        console.log("In RequestdetailsComponent : stateDropDownData:"+this.stateDropDownData)
        console.log("In RequestdetailsComponent : apiResponse :"+this.apiResponse)
   } else {
-     this.apiHospitalResponseObj = this.viewAdmissionHospitalRequestObj;
+    // this.apiHospitalResponseObj = this.viewAdmissionHospitalRequestObj;
      console.log("In RequestdetailsComponent : apiResponse :"+this.apiHospitalResponseObj)
   }
 

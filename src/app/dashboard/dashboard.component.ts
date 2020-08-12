@@ -115,7 +115,7 @@ export class DashboardComponent implements OnInit {
     this.index = i;
     this.apiResponse = hospitalDetails;
     //remove
-  //  sessionStorage.setItem("userType", "hospitalLogin");
+    sessionStorage.setItem("userType", "patientLogin");
     this.userType = sessionStorage.getItem("userType");
     if(this.userType === "patientLogin"){
       console.log(JSON.stringify(hospitalDetails));
