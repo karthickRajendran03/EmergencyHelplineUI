@@ -15,9 +15,9 @@
 
 
 var app = require('../server/server'),
-    expect = require('chai'),
-    supertest = require('supertest')(app);
-const assert = require('assert');
+  expect = require('chai'),
+  supertest = require('supertest')(app);
+  const assert = require('assert');
 
 
 var expect = require('chai').expect;
@@ -31,21 +31,21 @@ describe('Testing Server', function() {
   it('Public endpoint returns "Hello!"', function(done){
 
     supertest
-        .get("/")
-        .expect(200)
-        .end(done);
+      .get("/")
+      .expect(200)
+      .end(done);
 
   });
 
   it('Health endpoint shows status up', function(done){
     supertest.get('/health')
-        .set('Accept', 'application/json')
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .expect(response => {
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect(response => {
           assert(response.body.status, 'UP')
-        })
-        .end(done);
+      })
+      .end(done);
   });
 
 });

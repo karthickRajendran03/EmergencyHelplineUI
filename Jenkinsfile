@@ -1,5 +1,3 @@
-def pipelineVersion='1.1.3'
-println "Pipeline version: ${pipelineVersion}"
 /*
  * This is a vanilla Jenkins pipeline that relies on the Jenkins kubernetes plugin to dynamically provision agents for
  * the build containers.
@@ -12,32 +10,15 @@ println "Pipeline version: ${pipelineVersion}"
  * to run in both Kubernetes and OpenShift environments.
  */
 
-
-def buildAgentName(String jobNameWithNamespace, String buildNumber, String namespace) {
-    def jobName = removeNamespaceFromJobName(jobNameWithNamespace, namespace);
-
-    if (jobName.length() > 52) {
-        jobName = jobName.substring(0, 52);
+def buildAgentName(String jobName, String buildNumber) {
+    if (jobName.length() > 40) {
+        jobName = jobName.substring(0, 40);
     }
 
-    return "a.${jobName}${buildNumber}".replace('_', '-').replace('/', '-').replace('-.', '.');
+    return "agent.${jobName}${buildNumber}".replace('_', '-').replace('/', '-').replace('-.', '.');
 }
 
-def removeNamespaceFromJobName(String jobName, String namespace) {
-    return jobName.replaceAll(namespace + "-", "").replaceAll(jobName + "/", "");
-}
-
-def buildSecretName(String jobNameWithNamespace, String namespace) {
-    return jobNameWithNamespace.replaceFirst(namespace + "/", "").replaceFirst(namespace + "-", "").replace(".", "-").toLowerCase();
-}
-
-def secretName = buildSecretName(env.JOB_NAME, env.NAMESPACE)
-println "Job name: ${env.JOB_NAME}"
-println "Secret name: ${secretName}"
-
-def buildLabel = buildAgentName(env.JOB_NAME, env.BUILD_NUMBER, env.NAMESPACE);
-def branch = env.BRANCH ?: "master"
-def namespace = env.NAMESPACE ?: "dev"
+def buildLabel = buildAgentName(env.JOB_NAME, env.BUILD_NUMBER);
 def cloudName = env.CLOUD_NAME == "openshift" ? "openshift" : "kubernetes"
 def workingDir = "/home/jenkins/agent"
 podTemplate(
@@ -48,12 +29,9 @@ apiVersion: v1
 kind: Pod
 spec:
   serviceAccountName: jenkins
-  volumes:
-    - emptyDir: {}
-      name: varlibcontainers
   containers:
     - name: node
-      image: node:12-stretch
+      image: node:11-stretch
       tty: true
       command: ["/bin/bash"]
       workingDir: ${workingDir}
@@ -70,66 +48,8 @@ spec:
       env:
         - name: HOME
           value: ${workingDir}
-        - name: BRANCH
-          value: ${branch}
-        - name: GIT_AUTH_USER
-          valueFrom:
-            secretKeyRef:
-              name: git-credentials
-              key: username
-              optional: true
-        - name: GIT_AUTH_PWD
-          valueFrom:
-            secretKeyRef:
-              name: git-credentials
-              key: password
-              optional: true
-    - name: buildah
-      image: quay.io/buildah/stable:v1.9.0
-      tty: true
-      command: ["/bin/bash"]
-      workingDir: ${workingDir}
-      securityContext:
-        privileged: true
-      envFrom:
-        - configMapRef:
-            name: ibmcloud-config
-        - secretRef:
-            name: ibmcloud-apikey
-      env:
-        - name: HOME
-          value: /home/devops
-        - name: ENVIRONMENT_NAME
-          value: ${env.NAMESPACE}
-        - name: DOCKERFILE
-          value: ./Dockerfile
-        - name: CONTEXT
-          value: .
-        - name: TLSVERIFY
-          value: "false"
-        - name: REGISTRY_USER
-          valueFrom:
-            secretKeyRef:
-              key: REGISTRY_USER
-              name: ibmcloud-apikey
-              optional: true
-        - name: REGISTRY_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: REGISTRY_PASSWORD
-              name: ibmcloud-apikey
-              optional: true
-        - name: APIKEY
-          valueFrom:
-            secretKeyRef:
-              key: APIKEY
-              name: ibmcloud-apikey
-              optional: true
-      volumeMounts:
-        - mountPath: /var/lib/containers
-          name: varlibcontainers
     - name: ibmcloud
-      image: docker.io/garagecatalyst/ibmcloud-dev:1.0.10
+      image: docker.io/garagecatalyst/ibmcloud-dev:1.0.8
       tty: true
       command: ["/bin/bash"]
       workingDir: ${workingDir}
@@ -144,9 +64,12 @@ spec:
         - secretRef:
             name: artifactory-access
             optional: true
+        - secretRef:
+            name: gitops-cd-secret
+            optional: true
       env:
         - name: CHART_NAME
-          value: base
+          value: template-node-angular
         - name: CHART_ROOT
           value: chart
         - name: TMP_DIR
@@ -154,48 +77,38 @@ spec:
         - name: HOME
           value: /home/devops
         - name: ENVIRONMENT_NAME
-          value: ${env.NAMESPACE}
-        - name: BRANCH
-          value: ${branch}
-    - name: trigger-cd
-      image: docker.io/garagecatalyst/ibmcloud-dev:1.0.10
-      tty: true
-      command: ["/bin/bash"]
-      workingDir: ${workingDir}
-      env:
-        - name: HOME
-          value: /home/devops
-      envFrom:
-        - configMapRef:
-            name: gitops-repo
-            optional: true
-        - secretRef:
-            name: git-credentials
-            optional: true
+          value: dev
+        - name: BUILD_NUMBER
+          value: ${env.BUILD_NUMBER}
 """
 ) {
     node(buildLabel) {
         container(name: 'node', shell: '/bin/bash') {
             checkout scm
+            stage('Setup') {
+                sh '''#!/bin/bash
+                    set -x
+                    # Export project name (lowercase), version, and build number to ./env-config
+                    npm run env | grep "^npm_package_name" | tr '[:upper:]' '[:lower:]' | sed "s/_/-/g" | sed "s/npm-package-name/IMAGE_NAME/g" > ./env-config
+                    npm run env | grep "^npm_package_version" | sed "s/npm_package_version/IMAGE_VERSION/g" >> ./env-config
+                    echo "BUILD_NUMBER=${BUILD_NUMBER}" >> ./env-config
+                    cat ./env-config
+                '''
+            }
             stage('Build') {
                 sh '''#!/bin/bash
-                    npm install --unsafe-perm
-                    npm run build --if-present
+                    set -x
+                    npm install
+                    cd client
+                    npm install
+                    cd ..
+                    npm run build
                 '''
             }
             stage('Test') {
                 sh '''#!/bin/bash
+                    set -x
                     npm test
-                '''
-            }
-            stage('Publish pacts') {
-                sh '''#!/bin/bash
-                    npm run pact:publish --if-present
-                '''
-            }
-            stage('Verify pact') {
-                sh '''#!/bin/bash
-                    npm run pact:verify --if-present
                 '''
             }
             stage('Sonar scan') {
@@ -206,141 +119,76 @@ spec:
                   exit 0
                 fi
 
-                npm run sonarqube:scan --if-present
-                '''
-            }
-            stage('Tag release') {
-                sh '''#!/bin/bash
-                    set -x
-                    set -e
-
-                    if [[ -z "$GIT_AUTH_USER" ]] || [[ -z "$GIT_AUTH_PWD" ]]; then
-                      echo "Git credentials not found. The pipeline expects to find them in a secret named 'git-credentials'."
-                      echo "  Update your CLI and register the pipeline again"
-                      exit 1
-                    fi
-
-                    git config --local credential.helper "!f() { echo username=\\$GIT_AUTH_USER; echo password=\\$GIT_AUTH_PWD; }; f"
-
-                    git fetch
-                    git fetch --tags
-                    git tag -l
-
-                    COMMIT_HASH=$(git rev-parse HEAD)
-                    git checkout -b ${BRANCH} --track origin/${BRANCH}
-                    git branch --set-upstream-to=origin/${BRANCH} ${BRANCH}
-                    git reset --hard ${COMMIT_HASH}
-
-                    git config --global user.name "Jenkins Pipeline"
-                    git config --global user.email "jenkins@ibmcloud.com"
-
-                    if [[ "${BRANCH}" == "master" ]] && [[ $(git describe --tag `git rev-parse HEAD`) =~ (^[0-9]+.[0-9]+.[0-9]+$) ]] || \
-                       [[ $(git describe --tag `git rev-parse HEAD`) =~ (^[0-9]+.[0-9]+.[0-9]+-${BRANCH}[.][0-9]+$) ]]
-                    then
-                        echo "Latest commit is already tagged"
-                        echo "IMAGE_NAME=$(basename -s .git `git config --get remote.origin.url` | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g')" > ./env-config
-                        echo "IMAGE_VERSION=$(git describe --abbrev=0 --tags)" >> ./env-config
-                        exit 0
-                    fi
-
-                    mkdir -p ~/.npm
-                    npm config set prefix ~/.npm
-                    export PATH=$PATH:~/.npm/bin
-                    npm i -g release-it
-
-                    if [[ "${BRANCH}" != "master" ]]; then
-                        PRE_RELEASE="--preRelease=${BRANCH}"
-                    fi
-
-                    release-it patch ${PRE_RELEASE} \
-                      --ci \
-                      --no-npm \
-                      --no-git.push \
-                      --no-git.requireCleanWorkingDir \
-                      --verbose \
-                      -VV
-
-                    git push --follow-tags -v
-
-                    echo "IMAGE_VERSION=$(git describe --abbrev=0 --tags)" > ./env-config
-                    echo "IMAGE_NAME=$(basename -s .git `git config --get remote.origin.url` | tr '[:upper:]' '[:lower:]' | sed 's/_/-/g')" >> ./env-config
-                    echo "REPO_URL=$(git config --get remote.origin.url)" >> ./env-config
-
-                    cat ./env-config
-                '''
-            }
-        }
-        container(name: 'buildah', shell: '/bin/bash') {
-            stage('Build image') {
-                sh '''#!/bin/bash
-                    set -e
-                    . ./env-config
-
-		            echo TLSVERIFY=${TLSVERIFY}
-		            echo CONTEXT=${CONTEXT}
-
-		            if [[ -z "${REGISTRY_PASSWORD}" ]]; then
-		              REGISTRY_PASSWORD="${APIKEY}"
-		            fi
-
-                    APP_IMAGE="${REGISTRY_URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}:${IMAGE_VERSION}"
-
-                    buildah bud --tls-verify=${TLSVERIFY} --format=docker -f ${DOCKERFILE} -t ${APP_IMAGE} ${CONTEXT}
-                    if [[ -n "${REGISTRY_USER}" ]] && [[ -n "${REGISTRY_PASSWORD}" ]]; then
-                        buildah login -u "${REGISTRY_USER}" -p "${REGISTRY_PASSWORD}" "${REGISTRY_URL}"
-                    fi
-                    buildah push --tls-verify=${TLSVERIFY} "${APP_IMAGE}" "docker://${APP_IMAGE}"
+                set -x
+                npm run sonarqube:scan
                 '''
             }
         }
         container(name: 'ibmcloud', shell: '/bin/bash') {
-            stage('Deploy to DEV env') {
+
+            stage('Build image') {
                 sh '''#!/bin/bash
-                    echo "Deploying to ${ENVIRONMENT_NAME}"
-
-                    set +x
-
+                    set -x
+                    
                     . ./env-config
 
-                    if [[ "${CHART_NAME}" != "${IMAGE_NAME}" ]]; then
-                      cp -R "${CHART_ROOT}/${CHART_NAME}" "${CHART_ROOT}/${IMAGE_NAME}"
-                      cat "${CHART_ROOT}/${CHART_NAME}/Chart.yaml" | \
-                          yq w - name "${IMAGE_NAME}" > "${CHART_ROOT}/${IMAGE_NAME}/Chart.yaml"
+                    echo "Checking registry namespace: ${REGISTRY_NAMESPACE}"
+                    NS=$( ibmcloud cr namespaces | grep ${REGISTRY_NAMESPACE} ||: )
+                    if [[ -z "${NS}" ]]; then
+                        echo -e "Registry namespace ${REGISTRY_NAMESPACE} not found, creating it."
+                        ibmcloud cr namespace-add ${REGISTRY_NAMESPACE}
+                    else
+                        echo -e "Registry namespace ${REGISTRY_NAMESPACE} found."
                     fi
 
-                    CHART_PATH="${CHART_ROOT}/${IMAGE_NAME}"
+                    echo -e "Existing images in registry"
+                    ibmcloud cr images --restrict "${REGISTRY_NAMESPACE}/${IMAGE_NAME}"
+                    
+                    echo -e "=========================================================================================="
+                    echo -e "BUILDING CONTAINER IMAGE: ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}:${IMAGE_VERSION}"
+                    set -x
+                    ibmcloud cr build -t ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}:${IMAGE_VERSION} .
+                    if [[ -n "${BUILD_NUMBER}" ]]; then
+                        echo -e "BUILDING CONTAINER IMAGE: ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}:${IMAGE_VERSION}-${BUILD_NUMBER}"
+                        ibmcloud cr image-tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}:${IMAGE_VERSION} ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}:${IMAGE_VERSION}-${BUILD_NUMBER}
+                    fi
+                    
+                    echo -e "Available images in registry"
+                    ibmcloud cr images --restrict ${REGISTRY_NAMESPACE}/${IMAGE_NAME}
+                '''
+            }
+            stage('Deploy to DEV env') {
+                sh '''#!/bin/bash
+                    set -x
+
+                    . ./env-config
+                    
+                    CHART_PATH="${CHART_ROOT}/${CHART_NAME}"
 
                     echo "KUBECONFIG=${KUBECONFIG}"
 
                     RELEASE_NAME="${IMAGE_NAME}"
                     echo "RELEASE_NAME: $RELEASE_NAME"
 
+                    if [[ -n "${BUILD_NUMBER}" ]]; then
+                      IMAGE_VERSION="${IMAGE_VERSION}-${BUILD_NUMBER}"
+                    fi
+                    
                     echo "INITIALIZING helm with client-only (no Tiller)"
                     helm init --client-only 1> /dev/null 2> /dev/null
-
+                    
                     echo "CHECKING CHART (lint)"
                     helm lint ${CHART_PATH}
-
+                    
                     IMAGE_REPOSITORY="${REGISTRY_URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}"
                     PIPELINE_IMAGE_URL="${REGISTRY_URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}:${IMAGE_VERSION}"
-
-                    INGRESS_ENABLED="true"
-                    ROUTE_ENABLED="false"
-                    if [[ "${CLUSTER_TYPE}" == "openshift" ]]; then
-                        INGRESS_ENABLED="false"
-                        ROUTE_ENABLED="true"
-                    fi
-
+                    
                     # Update helm chart with repository and tag values
                     cat ${CHART_PATH}/values.yaml | \
                         yq w - nameOverride "${IMAGE_NAME}" | \
                         yq w - fullnameOverride "${IMAGE_NAME}" | \
-                        yq w - vcsInfo.repoUrl "${REPO_URL}" | \
-                        yq w - vcsInfo.branch "${BRANCH}" | \
                         yq w - image.repository "${IMAGE_REPOSITORY}" | \
-                        yq w - image.tag "${IMAGE_VERSION}" | \
-                        yq w - ingress.enabled "${INGRESS_ENABLED}" | \
-                        yq w - route.enabled "${ROUTE_ENABLED}" > ./values.yaml.tmp
+                        yq w - image.tag "${IMAGE_VERSION}" > ./values.yaml.tmp
                     cp ./values.yaml.tmp ${CHART_PATH}/values.yaml
                     cat ${CHART_PATH}/values.yaml
 
@@ -350,59 +198,58 @@ spec:
                         --namespace ${ENVIRONMENT_NAME} \
                         --set ingress.tlsSecretName="${TLS_SECRET_NAME}" \
                         --set ingress.subdomain="${INGRESS_SUBDOMAIN}" > ./release.yaml
-
+                    
                     echo -e "Generated release yaml for: ${CLUSTER_NAME}/${ENVIRONMENT_NAME}."
                     cat ./release.yaml
-
+                    
                     echo -e "Deploying into: ${CLUSTER_NAME}/${ENVIRONMENT_NAME}."
-                    kubectl apply -n ${ENVIRONMENT_NAME} -f ./release.yaml --validate=false
+                    kubectl apply -n ${ENVIRONMENT_NAME} -f ./release.yaml
+
+                    # ${SCRIPT_ROOT}/deploy-checkstatus.sh ${ENVIRONMENT_NAME} ${IMAGE_NAME} ${IMAGE_REPOSITORY} ${IMAGE_VERSION}
                 '''
             }
             stage('Health Check') {
                 sh '''#!/bin/bash
                     . ./env-config
-
-                    if [[ "${CLUSTER_TYPE}" == "openshift" ]]; then
-                        ROUTE_HOST=$(kubectl get route/${IMAGE_NAME} --namespace ${ENVIRONMENT_NAME} --output=jsonpath='{ .spec.host }')
-                        URL="https://${ROUTE_HOST}"
-                    else
-                        INGRESS_HOST=$(kubectl get ingress.networking.k8s.io/${IMAGE_NAME} --namespace ${ENVIRONMENT_NAME} --output=jsonpath='{ .spec.rules[0].host }')
-                        URL="http://${INGRESS_HOST}"
-                    fi
-
-                    sleep_countdown=5
+                    
+                    INGRESS_NAME="${IMAGE_NAME}"
+                    INGRESS_HOST=$(kubectl get ingress/${INGRESS_NAME} --namespace ${ENVIRONMENT_NAME} --output=jsonpath='{ .spec.rules[0].host }')
+                    PORT='80'
 
                     # sleep for 10 seconds to allow enough time for the server to start
-                    sleep 10
-                    echo "Health check start"
-                    while [[ $(curl -sL -w "%{http_code}\\n" "${URL}/health" -o /dev/null --connect-timeout 3 --max-time 5 --retry 3 --retry-max-time 30) != "200" ]]; do
-                        sleep 30
-                        echo "Health check failure. Remaining retries: $sleep_countdown"
-                        sleep_countdown=$((sleep_countdown-1))
-                        if [[ $sleep_countdown -eq 0 ]]; then
-                                echo "Could not reach health endpoint: ${URL}/health"
-                                exit 1;
-                        fi
-                    done
+                    sleep 30
 
-                    echo "Successfully reached health endpoint: ${URL}/health"
+                    if [ $(curl -sL -w "%{http_code}\\n" "http://${INGRESS_HOST}:${PORT}/health" -o /dev/null --connect-timeout 3 --max-time 5 --retry 3 --retry-max-time 30) == "200" ]; then
+                        echo "Successfully reached health endpoint: http://${INGRESS_HOST}:${PORT}/health"
                     echo "====================================================================="
+                        else
+                    echo "Could not reach health endpoint: http://${INGRESS_HOST}:${PORT}/health"
+                        exit 1;
+                    fi;
+
                 '''
             }
             stage('Package Helm Chart') {
                 sh '''#!/bin/bash
+                set -x
 
-                if [[ -z "${ARTIFACTORY_URL}" ]]; then
+                if [[ -z "${ARTIFACTORY_ENCRPT}" ]]; then
                   echo "Skipping Artifactory step as Artifactory is not installed or configured"
                   exit 0
                 fi
 
                 . ./env-config
 
-                if [[ -z "${ARTIFACTORY_ENCRYPT}" ]]; then
-                    echo "It looks like your Artifactory installation is not complete. Please complete the steps found here - http://ibm.biz/complete-setup"
+                if [[ -n "${BUILD_NUMBER}" ]]; then
+                  IMAGE_BUILD_VERSION="${IMAGE_VERSION}-${BUILD_NUMBER}"
+                fi
+
+                if [[ -z "${ARTIFACTORY_ENCRPT}" ]]; then
+                    echo "Encrption key not available for Jenkins pipeline, please add it to the artifactory-access"
                     exit 1
                 fi
+
+                sudo apt-get install jq.
 
                 # Check if a Generic Local Repo has been created and retrieve the URL for it
                 export URL=$(curl -u${ARTIFACTORY_USER}:${ARTIFACTORY_PASSWORD} -X GET "${ARTIFACTORY_URL}/artifactory/api/repositories?type=LOCAL" | jq '.[0].url' | tr -d \\")
@@ -417,10 +264,10 @@ spec:
                 fi;
 
                 # Package Helm Chart
-                helm package --version ${IMAGE_VERSION} ${CHART_ROOT}/${IMAGE_NAME}
+                helm package --version ${IMAGE_BUILD_VERSION} chart/${CHART_NAME}
 
                 # Get the index and re index it with current Helm Chart
-                curl -u${ARTIFACTORY_USER}:${ARTIFACTORY_ENCRYPT} -O "${URL}/${REGISTRY_NAMESPACE}/index.yaml"
+                curl -u${ARTIFACTORY_USER}:${ARTIFACTORY_ENCRPT} -O "${URL}/${REGISTRY_NAMESPACE}/index.yaml"
 
                 if [[ $(cat index.yaml | jq '.errors[0].status') != "404" ]]; then
                     # Merge the chart index with the current index.yaml held in Artifactory
@@ -434,55 +281,58 @@ spec:
                 fi;
 
                 # Persist the Helm Chart in Artifactory for us by ArgoCD
-                curl -u${ARTIFACTORY_USER}:${ARTIFACTORY_ENCRYPT} -i -vvv -T ${IMAGE_NAME}-${IMAGE_VERSION}.tgz "${URL}/${REGISTRY_NAMESPACE}/${IMAGE_NAME}-${IMAGE_VERSION}.tgz"
+                curl -u${ARTIFACTORY_USER}:${ARTIFACTORY_ENCRPT} -i -vvv -T ${CHART_NAME}-${IMAGE_BUILD_VERSION}.tgz "${URL}/${REGISTRY_NAMESPACE}/${CHART_NAME}-${IMAGE_BUILD_VERSION}.tgz"
 
                 # Persist the Helm Chart in Artifactory for us by ArgoCD
-                curl -u${ARTIFACTORY_USER}:${ARTIFACTORY_ENCRYPT} -i -vvv -T index.yaml "${URL}/${REGISTRY_NAMESPACE}/index.yaml"
+                curl -u${ARTIFACTORY_USER}:${ARTIFACTORY_ENCRPT} -i -vvv -T index.yaml "${URL}/${REGISTRY_NAMESPACE}/index.yaml"
 
             '''
             }
-        }
-        container(name: 'trigger-cd', shell: '/bin/bash') {
             stage('Trigger CD Pipeline') {
                 sh '''#!/bin/bash
-                    if [[ -z "${url}" ]]; then
-                        echo "'url' not set. Not triggering CD pipeline"
+                    if [[ -z "${GITOPS_CD_URL}" ]]; then
                         exit 0
                     fi
-                    if [[ -z "${host}" ]]; then
-                        echo "'host' not set. Not triggering CD pipeline"
-                        exit 0
+                    if [[ -z "${GITOPS_CD_BRANCH}" ]]; then
+                        GITOPS_CD_BRANCH="master"
                     fi
-
-                    if [[ -z "${branch}" ]]; then
-                        branch="master"
-                    fi
-
+                    
                     . ./env-config
-
-                    # This email is not used and is not valid, you can ignore but git requires it
+                    
+                    if [[ -n "${BUILD_NUMBER}" ]]; then
+                      IMAGE_BUILD_VERSION="${IMAGE_VERSION}-${BUILD_NUMBER}"
+                    fi
+                    
+                    # This email is not used and it not valid, you can ignore but git requires it
                     git config --global user.email "jenkins@ibmcloud.com"
                     git config --global user.name "Jenkins Pipeline"
-
-                    GIT_URL="https://${username}:${password}@${host}/${org}/${repo}"
-
-                    git clone -b ${branch} ${GIT_URL} gitops_cd
+                    
+                    git clone -b ${GITOPS_CD_BRANCH} ${GITOPS_CD_URL} gitops_cd
                     cd gitops_cd
-
+                    
                     echo "Requirements before update"
                     cat "./${IMAGE_NAME}/requirements.yaml"
-
-                    npm i -g @garage-catalyst/ibm-garage-cloud-cli
-                    igc yq w ./${IMAGE_NAME}/requirements.yaml "dependencies[?(@.name == '${IMAGE_NAME}')].version" ${IMAGE_VERSION} -i
-
+                    
+                    # Read the helm repo
+                    HELM_REPO=$(yq r ./${IMAGE_NAME}/requirements.yaml 'dependencies[0].repository')
+                    
+                    # Write the updated requirements.yaml
+                    echo "dependencies:" > ./requirements.yaml.tmp
+                    echo "  - name: ${CHART_NAME}" >> ./requirements.yaml.tmp
+                    echo "    version: ${IMAGE_BUILD_VERSION}" >> ./requirements.yaml.tmp
+                    echo "    repository: ${HELM_REPO}" >> ./requirements.yaml.tmp
+                    
+                    cp ./requirements.yaml.tmp "./${IMAGE_NAME}/requirements.yaml"
+                    
                     echo "Requirements after update"
                     cat "./${IMAGE_NAME}/requirements.yaml"
-
+                    
                     git add -u
-                    git commit -m "Updates ${IMAGE_NAME} to ${IMAGE_VERSION}"
-                    git push -v
+                    git commit -m "Updates ${IMAGE_NAME} to ${IMAGE_BUILD_VERSION}"
+                    git push
                 '''
             }
         }
     }
 }
+
