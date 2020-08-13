@@ -19,23 +19,21 @@ export class DataserviceService {
       const headers = {
       'Content-type': 'application/json'
     }
-      return this.http.post<ApiResponseArray>('http://localhost:8083/hospital/searchHospitals', requestInput, {headers});
+      return this.http.post<ApiResponseArray>('https://hospitalmanagementservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/hospital/searchHospitals', requestInput, {headers});
     }
 
   public getSubmittedRequests(mobNumber){
     const headers = {
     'Content-type': 'application/json'
   }
-    mobNumber = "9840789719";
-    return this.http.get<ViewAdmissionRequestArray>('http://localhost:8082/patient/viewAdmission/' + mobNumber, {headers});
+    return this.http.get<ViewAdmissionRequestArray>('https://patientservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/patient/viewAdmission/' + mobNumber, {headers});
   }
 
   public viewHospitalSubmittedRequests(hospitalRegnNo){
     const headers = {
     'Content-type': 'application/json'
   }
-    hospitalRegnNo = "REGN1234";
-    return this.http.get<ViewAdmissionHospitalRequestArray>('http://localhost:8083/hospital/viewAdmission/' + hospitalRegnNo, {headers});
+    return this.http.get<ViewAdmissionHospitalRequestArray>('https://hospitalmanagementservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/hospital/viewAdmission/' + hospitalRegnNo, {headers});
   }
 
   public submitRequest(submitAdmissionRequest){
@@ -43,7 +41,7 @@ export class DataserviceService {
     'Content-type': 'application/json'
   }
     console.log(JSON.stringify(submitAdmissionRequest))
-    return this.http.post<SubmitAdmissionResponse>('http://localhost:8083/patient/submitAdmission', submitAdmissionRequest, {headers});
+    return this.http.post<SubmitAdmissionResponse>('https://patientservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/patient/submitAdmission', submitAdmissionRequest, {headers});
   }
 
   public submitHospitalRequest(submitAdmissionRequest){
@@ -51,7 +49,7 @@ export class DataserviceService {
     'Content-type': 'application/json'
   }
     console.log(JSON.stringify(submitAdmissionRequest))
-    return this.http.post<SubmitAdmissionResponse>('http://localhost:8083/patient/submitAdmission', submitAdmissionRequest, {headers});
+    return this.http.post<SubmitAdmissionResponse>('https://patientservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/patient/submitAdmission', submitAdmissionRequest, {headers});
   }
 
   public authService(user){
@@ -63,12 +61,16 @@ export class DataserviceService {
     	  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     	  'Access-Control-Max-Age': '3600'
     }
-    return this.http.post<any>("http://localhost:8081/oauth/token", user, {headers});
+    return this.http.post<any>("https://authenticationservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/oauth/token", user, {headers});
 }
 
 public getUsers(userName) {
-  console.log(userName)
-    return this.http.get<any>("http://localhost:8081/user?access_token=" + JSON.parse(window.sessionStorage.getItem('token')).access_token);
+  const httpHeaders ={
+    headers: new HttpHeaders({
+      'Content-Type':'application/json'
+    })
+  }
+    return this.http.get<any>("https://authenticationservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/getUserData/"+userName, httpHeaders);
   }
 
 public registerUser(user){
@@ -78,7 +80,7 @@ public registerUser(user){
     })
   }
   console.log(user)
-return this.http.post<any>("http://localhost:8081/authentication/register", user, httpHeaders);
+return this.http.post<any>("https://authenticationservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/authentication/register", user, httpHeaders);
 }
 
 public viewFacilities(regno){
@@ -87,7 +89,7 @@ const httpHeaders ={
       'Content-Type':'application/json'
     })
   }
-  return this.http.post<HospitalSearchResponseDTO>("http://localhost:8083/hospital/viewFacility/" + regno,httpHeaders);
+  return this.http.post<HospitalSearchResponseDTO>("https://hospitalmanagementservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/hospital/viewFacility/" + regno,httpHeaders);
 }
 public updateFacilities(hospitalSearchResponseDTO){
 const httpHeaders ={
@@ -95,7 +97,7 @@ const httpHeaders ={
       'Content-Type':'application/json'
     })
   }
-  return this.http.post<HospitalSearchResponseDTO>("url",hospitalSearchResponseDTO,httpHeaders);
+  return this.http.post<HospitalSearchResponseDTO>("https://hospitalmanagementservice-dev-karthick3.sandbox-ocp43-one-176292-be5b1ee812fa4041cc73b6bbf969fc88-0000.eu-gb.containers.appdomain.cloud/hospital/updateFacility",hospitalSearchResponseDTO,httpHeaders);
 }
 
 }
