@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: BuildConfig
+metadata:
+  name: karthickrajendran03.emergencyhelplineui
+  labels:
+    app: EmergencyHelplineUI
+spec:
+  triggers:
+    - type: GitHub
+      github:
+        secret: secret101
+  source:
+    git:
+      uri: 'https://github.com/karthickRajendran03/EmergencyHelplineUI.git'
+      ref: master
+  strategy:
+    jenkinsPipelineStrategy:
+      jenkinsfilePath: Jenkinsfile
+      env:
+        - name: CLOUD_NAME
+          value: openshift
+        - name: NAMESPACE
+          value: dev-karthick3
+        - name: BRANCH
+          value: master
