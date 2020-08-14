@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "template-node-angular": {
+    "emergencyhelpline-angular": {
       "root": "",
       "sourceRoot": "src",
       "projectType": "application",
@@ -61,19 +61,19 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "template-node-angular:build",
+            "browserTarget": "emergencyhelpline-angular:build",
             "port": 3001
           },
           "configurations": {
             "production": {
-              "browserTarget": "template-node-angular:build:production"
+              "browserTarget": "emergencyhelpline-angular:build:production"
             }
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "template-node-angular:build"
+            "browserTarget": "emergencyhelpline-angular:build"
           }
         },
         "test": {
@@ -107,7 +107,7 @@
         }
       }
     },
-    "template-node-angular-e2e": {
+    "emergencyhelpline-angular-e2e": {
       "root": "e2e/",
       "projectType": "application",
       "prefix": "",
@@ -116,11 +116,11 @@
           "builder": "@angular-devkit/build-angular:protractor",
           "options": {
             "protractorConfig": "e2e/protractor.conf.js",
-            "devServerTarget": "template-node-angular:serve"
+            "devServerTarget": "emergencyhelpline-angular:serve"
           },
           "configurations": {
             "production": {
-              "devServerTarget": "template-node-angular:serve:production"
+              "devServerTarget": "emergencyhelpline-angular:serve:production"
             }
           }
         },
@@ -136,5 +136,5 @@
       }
     }
   },
-  "defaultProject": "template-node-angular"
+  "defaultProject": "emergencyhelpline-angular"
 }
